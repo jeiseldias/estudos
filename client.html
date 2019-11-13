@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Estudo</title>
+
+		<style>
+			body {
+                margin: 40px 0 0 0;
+                padding: 0;
+                background-color: #EEE;
+                text-align: center;
+            }
+
+            #screen {
+                image-rendering: pixelated;
+                image-rendering: crisp-edges;
+                image-rendering: -moz-crisp-edges;
+                -webkit-box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                -moz-box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                box-shadow: 0px 4px 17px 0px rgba(0,0,0,0.19);
+                margin-bottom: 20px;
+                margin-left: 20px;
+                margin-right: 20px;
+                display: inline-block;
+                vertical-align: top;
+            }
+            #score-table {
+                font-size: 13px;
+                vertical-align: top;
+                display: inline-block;
+                font-family: Arial, Helvetica, sans-serif
+            }
+            #score-table tr.header td {
+                border-bottom: 1px solid #CCC;
+                padding-bottom: 8px;
+            }
+            #score-table tr.footer td {
+                border-top: 1px solid #CCC;
+                font-size: 11px;
+            }
+            #score-table td {
+                padding-top: 5px;
+                padding-bottom: 5px;
+            }
+            #score-table .socket-id {
+                font-weight: normal;
+                color: #222;
+                width: 150px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: inline-block
+            }
+            #score-table .score-value {
+                font-weight: bold;
+                color: #000;
+                text-align: right;
+            }
+            #score-table .current-player .socket-id,
+            #score-table .current-player .score-value {
+                color: #bdaa27;
+            }
+            #max-concurrent-connection-message {
+                background-color: #F0DB4F;
+                border: 1px solid #000;
+                text-align:center;
+                margin: auto;
+                margin: 100px;
+                padding: 50px;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                left: 0;
+                font-family: Arial, Helvetica, sans-serif;
+                display: none;
+            }
+        </style>
+	</head>
+	
+	<body>
+		<div id="game-container">
+			<canvas id="screen" width="700" height="500"></canvas>
+			<table id="score-table">
+				<tr class="header">
+					<td>RESULTADO(S):</td> 
+				</tr>
+				<tr>
+					<td>
+						0 perguntas respondida(s).
+					</td>
+				</tr>
+				<tr>
+					<td>
+						0 acerto(s).
+					</td>
+				</tr>
+				<tr>
+					<td>
+						NOTA: 
+					</td>
+				</tr>
+			</table>
+		</div>
+	</body>
+
+	<script type="text/javascript" src="perguntas.json"></script>
+	<script type="text/javascript">
+		const screen = document.getElementById('screen');
+		const scoreTable = document.getElementById('score-table');
+		const context = screen.getContext('2d');
+		const questoes = JSON.parse(data);
+		const buttons = {};
+		const sorteados = [];
+		const game = {
+			placar: 0,
+			quantidade: 0,
+			pergunta: '',
+			alternativas: {},
+			resposta: '',
+			escolha: '',
+			tempo: 0,
+			resultado: 'N'
+		}
+
+		var sorteada = 0;
+		var intervalo;
+
+		sorteio();
+
+		function sorteio() {
+			sorteada = Math.floor(Math.random() * questoes.length);
+
+			if( sorteados.indexOf(sorteada) == -1 ) {
+				sorteados.push( sorteada );
+
+				game.pergunta = questoes[sorteada]['pergunta'];
+				game.alternativas = {
+					'A': questoes[sorteada]['alternativas']['A'],
+					'B': questoes[sorteada]['alternativas']['B'],
+					'C': questoes[sorteada]['alternativas']['C'],
+					'D': questoes[sorteada]['alternativas']['D']
+				};
+				game.resposta = questoes[sorteada]['resposta'];
+				game.escolha = '';
+				game.tempo = 30;
+				game.resultado = 'N';
+
+				renderScreen();
+
+				intervalo = setInterval( contador, 1000 );
+			} else {
+				if( sorteados.length < questoes.length ) {
+					sorteio();
+				} else {
+					console.log("FIM");
+				}
+			}
+		}
+
+		function atualizaPlacar() {
+			scoreTable.innerHTML = '' + 
+				'<tr class="header">' +
+					'<td>RESULTADO(S):</td> ' +
+				'</tr>' +
+				'<tr>' +
+					'<td>' +
+						game.quantidade + ' perguntas respondida(s).' +
+					'</td>' +
+				'</tr>' +
+				'<tr>' +
+					'<td>' +
+						game.placar + ' acerto(s).' +
+					'</td>' +
+				'</tr>' +
+				'<tr>' +
+					'<td>' +
+						'NOTA: ' + ( (game.placar*10)/game.quantidade ).toFixed(2) +
+					'</td>' +
+				'</tr>';
+		}
+
+		function contador() { 
+			game.tempo--;
+
+			if( game.tempo <= 0 ) {
+				clearInterval( intervalo );
+				game.quantidade++;
+
+				if( game.resposta == game.escolha ) {
+					game.placar++;
+				}
+
+				atualizaPlacar();
+				sorteio();
+			}
+
+			renderScreen(); 
+		}
+
+		function wrapText(context, text, x, y, maxWidth, lineHeight) {
+			context.fillStyle = '#000';
+	        context.font = "20px Arial";
+            var line = "";
+            var words = text.split(" ");
+
+            for (var n = 0; n < words.length; n++) {
+                var testLine = line + words[n] + " ";
+                var metrics = context.measureText(testLine);
+                var testWidth = metrics.width;
+
+                if (testWidth > maxWidth) {
+                    context.fillText(line, x, y);
+                    line = words[n] + " ";
+                    y += lineHeight;
+                }
+                else {
+                    line = testLine;
+                }  
+            }
+
+            context.fillText(line, x, y);
+            y += lineHeight;
+
+	        return y;
+	    }
+
+	    function getMousePos(canvas, event) {
+		    var rect = canvas.getBoundingClientRect();
+		    return {
+		        x: event.clientX - rect.left,
+		        y: event.clientY - rect.top
+		    };
+		}
+
+		function isInside(pos, rect){
+		    return pos.x > rect.x && pos.x < rect.x+rect.width && pos.y < rect.y+rect.height && pos.y > rect.y
+		}
+		
+		function renderScreen() {
+			context.clearRect(0, 0, 750, 500);
+			var linhas = wrapText(context, game.pergunta, 10, 40, 650, 20);
+
+			context.globalCompositeOperation='destination-over';
+			context.font = "25px Arial";
+
+			context.beginPath();
+			context.moveTo(10, linhas);
+			context.lineTo(690, linhas);
+			context.lineWidth = 2;
+			context.stroke();
+
+			context.fillText("00:" + ("00" + game.tempo).slice(-2), 10, linhas+30);
+
+			const path = new Path2D()
+
+			buttons.A = {
+				x:10,
+			    y:linhas+40,
+			    width:680,
+			    height:80
+			}
+
+			buttons.B = {
+				x:10,
+			    y:linhas+130,
+			    width:680,
+			    height:80
+			}
+
+			buttons.C = {
+				x:10,
+			    y:linhas+220,
+			    width:680,
+			    height:80
+			}
+
+			buttons.D = {
+				x:10,
+			    y:linhas+310,
+			    width:680,
+			    height:80
+			}
+
+			if( game.escolha == '' ) {
+				context.fillStyle = '#CCC';
+			} else {
+				if ( game.resposta == game.escolha) {
+					context.fillStyle = '#399D01';
+					game.resultado = 'S';
+				} else {
+					context.fillStyle = '#D34334';
+				}
+			}
+
+			if( game.escolha == '' || game.escolha == 'A' ) {
+				context.strokeText(game.alternativas['A'], 20, linhas+85);
+				path.rect(buttons.A['x'], buttons.A['y'], buttons.A['width'], buttons.A['height']);
+				path.closePath()
+				context.fill(path);
+			}
+
+			if( game.escolha == '' || game.escolha == 'B' ) {
+				context.strokeText(game.alternativas['B'], 20, linhas+175);
+				path.rect(buttons.B['x'], buttons.B['y'], buttons.B['width'], buttons.B['height'])
+				path.closePath()
+				context.fill(path);
+			}
+
+			if( game.escolha == '' || game.escolha == 'C' ) {
+				context.strokeText(game.alternativas['C'], 20, linhas+265);
+				path.rect(buttons.C['x'], buttons.C['y'], buttons.C['width'], buttons.C['height'])
+				path.closePath()
+				context.fill(path);
+			}
+
+			if( game.escolha == '' || game.escolha == 'D' ) {
+				context.strokeText(game.alternativas['D'], 20, linhas+355);
+				path.rect(buttons.D['x'], buttons.D['y'], buttons.D['width'], buttons.D['height'])
+				path.closePath()
+				context.fill(path);
+			}
+
+			requestAnimationFrame( renderScreen );
+		}
+
+		screen.addEventListener('click', function(evt) {
+		    var mousePos = getMousePos(screen, evt);
+
+		    if (isInside(mousePos,buttons.A)) {
+		        game.escolha = 'A';
+		    }
+
+		    if (isInside(mousePos,buttons.B)) {
+		        game.escolha = 'B';
+		    }
+
+		    if (isInside(mousePos,buttons.C)) {
+		        game.escolha = 'C';
+		    }
+
+		    if (isInside(mousePos,buttons.D)) {
+		        game.escolha = 'D';
+		    }
+
+		    game.tempo = 3;
+		    context.clearRect(0,0,700,500);
+			renderScreen();
+		}, false);
+	</script>
+</html>
